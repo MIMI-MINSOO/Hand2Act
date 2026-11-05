@@ -1,0 +1,91 @@
+# 상대경로는 프로젝트 루트(이 파일의 상위 폴더의 상위) 기준
+
+paths:
+  intrinsics: calib/intrinsics.json
+  hand_model: calib/hand_model.json
+  gripper_range: calib/gripper_range.json
+  mediapipe_model: assets/hand_landmarker.task
+
+# ---------------------------------------------------------------- 보드 (intrinsic / 손 크기 / world frame 공용)
+board:
+  dictionary: DICT_4X4_50
+  squares_x: 5
+  squares_y: 7
+  square_length: 0.035     # [m] 인쇄 후 자로 실측한 값으로 꼭 수정
+  marker_length: 0.026     # [m] 실측값
+  legacy_pattern: false    # OpenCV 4.6 이하에서 만든 보드면 true
+  min_corners: 6
+  # 로봇 base 기준 보드 pose. 보드를 책상에 눕히면 보드 z가 아래를 향하므로 x축 180° 회전 → base z 위쪽
+  board_in_base:
+    xyz: [0.0, 0.0, 0.0]   # [m] 보드 원점(좌상단 코너)의 base 기준 위치
+    rpy_deg: [180, 0, 0]
+
+# ---------------------------------------------------------------- 손
+hand:
+  side: right              # right | left
+  input_mirrored: false    # 후면 카메라 영상이면 false (MediaPipe handedness 뒤집기)
+  accept_other_side: true  # 한 손만 보일 때 handedness가 반대로 나와도 사용
+  min_detection_conf: 0.5
+  min_presence_conf: 0.5
+  min_tracking_conf: 0.5
+
+hand_model:
+  plane_offset: 0.01       # [m] 책상 면 ~ 관절 중심 높이 (손 두께 절반). ablation 대상
+  max_frames: 150
+
+# ---------------------------------------------------------------- 2D → 3D lifting
+lifting:
+  method: pnp              # pnp | size_ratio(레퍼런스 방식 baseline)
+  pnp_method: ippe         # ippe | sqpnp | iterative
+  refine_lm: true
+  finger_method: umeyama   # umeyama | ray_bone
+  max_reproj_px: 6.0       # 넘으면 HIGH_REPROJ 플래그
+  prev_max_gap_sec: 0.2    # 이전 프레임 pose를 flip 선택에 쓰는 최대 간격
+  flip_err_ratio: 3.0
+
+# ---------------------------------------------------------------- 로봇 EE 대응
+retarget:
+  origin: pinch            # pinch(엄지–검지 끝 중점) | wrist | palm_center
+  orientation: palm        # palm(안정적) | grasp(엄지→검지로 닫힘축, 닫히면 palm으로 대체)
+  # tool 좌표계 각 축을 palm frame 축으로 표현. 기본: tool z(접근)=palm x, tool y(닫힘)=palm z
+  tool_axes_in_palm: [y, z, x]
+  extra_rpy_deg: [0, 0, 0] # tool frame에서 추가 미세 회전
+  tcp_offset: [0, 0, 0]    # [m] tool frame 기준 추가 offset
+  grasp_min_dist: 0.025
+
+gripper:
+  default_range: [0.015, 0.09]   # gripper_range.json이 없을 때 [d_closed, d_open] (m)
+
+# ---------------------------------------------------------------- 필터
+filter_live:               # One Euro (causal)
+  pos_min_cutoff: 1.0
+  pos_beta: 2.5
+  rot_min_cutoff: 2.0
+  rot_beta: 1.0
+  grip_min_cutoff: 8.0
+  d_cutoff: 1.0
+
+postprocess:               # 오프라인 (non-causal)
+  max_gap_sec: 0.15        # 이보다 짧은 결측만 보간
+  savgol_window: 9
+  savgol_polyorder: 2
+  run_ik: true
+
+# ---------------------------------------------------------------- 로봇 (범용 MuJoCo)
+robot:
+  mjcf: assets/demo_arm.xml          # PiPER/SO-101 MJCF로 교체
+  joints: [j1, j2, j3, j4, j5, j6]
+  ee_site: tcp
+  home_q: [0.0, 0.55, 0.85, 0.0, 0.75, 0.0]
+  gripper_joints: [finger_left, finger_right]
+  gripper_joint_range: [0.0, 0.035]  # g=0 → 앞 값, g=1 → 뒤 값
+  ik:
+    max_iters: 30
+    pos_tol: 0.002
+    ori_tol: 0.02
+    ori_weight: 0.35
+    base_damping: 0.02
+    singular_damping: 0.2
+    manip_threshold: 0.006
+    max_step: 0.35
+    max_pos_err: 0.12

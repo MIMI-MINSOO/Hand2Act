@@ -1,5 +1,17 @@
-# Python
 __pycache__/
+*.pyc
+.venv/
+assets/hand_landmarker.task
+calib/*.json
+calib/*.png
+calib/*.jpg
+calib_raw/
+data/
+results/
+eval/
+
+# --- general ---
+# Python
 *.py[cod]
 *.egg-info/
 .eggs/
@@ -7,7 +19,6 @@ build/
 dist/
 
 # Virtual environments
-.venv/
 venv/
 env/
 
@@ -26,7 +37,6 @@ desktop.ini
 .env.*
 
 # Data, weights, outputs
-data/
 datasets/
 checkpoints/
 *.pt

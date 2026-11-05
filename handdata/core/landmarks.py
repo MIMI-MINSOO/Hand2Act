@@ -1,0 +1,25 @@
+"""MediaPipe 21 keypoint 인덱스와 손 구조 정의."""
+
+WRIST = 0
+THUMB_CMC, THUMB_MCP, THUMB_IP, THUMB_TIP = 1, 2, 3, 4
+INDEX_MCP, INDEX_PIP, INDEX_DIP, INDEX_TIP = 5, 6, 7, 8
+MIDDLE_MCP, MIDDLE_PIP, MIDDLE_DIP, MIDDLE_TIP = 9, 10, 11, 12
+RING_MCP, RING_PIP, RING_DIP, RING_TIP = 13, 14, 15, 16
+PINKY_MCP, PINKY_PIP, PINKY_DIP, PINKY_TIP = 17, 18, 19, 20
+
+# PnP에 쓰는 강체(손바닥) 점: wrist + 4개 MCP. 순서가 palm_frame() 입력 순서와 같아야 함.
+PALM = [WRIST, INDEX_MCP, MIDDLE_MCP, RING_MCP, PINKY_MCP]
+
+# 손가락 체인 (부모 → 자식). ray-bone 손가락 복원과 뼈 길이 계산에 사용.
+CHAINS = [
+    [WRIST, THUMB_CMC, THUMB_MCP, THUMB_IP, THUMB_TIP],
+    [INDEX_MCP, INDEX_PIP, INDEX_DIP, INDEX_TIP],
+    [MIDDLE_MCP, MIDDLE_PIP, MIDDLE_DIP, MIDDLE_TIP],
+    [RING_MCP, RING_PIP, RING_DIP, RING_TIP],
+    [PINKY_MCP, PINKY_PIP, PINKY_DIP, PINKY_TIP],
+]
+BONES = [(a, b) for chain in CHAINS for a, b in zip(chain[:-1], chain[1:])]
+
+# 오버레이용 연결선
+CONNECTIONS = BONES + [(WRIST, INDEX_MCP), (INDEX_MCP, MIDDLE_MCP),
+                       (MIDDLE_MCP, RING_MCP), (RING_MCP, PINKY_MCP), (WRIST, PINKY_MCP)]

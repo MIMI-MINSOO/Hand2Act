@@ -1,0 +1,122 @@
+<mujoco model="handarm">
+  <!--
+    6-DOF serial arm (yaw / pitch / pitch / roll / pitch / roll) with a
+    parallel-jaw gripper, plus a small pick-and-place scene: two cubes and
+    a tray. The `tcp` site between the fingertips is the IK target frame.
+  -->
+  <compiler angle="radian" autolimits="true"/>
+  <option timestep="0.002" integrator="implicitfast" gravity="0 0 -9.81"/>
+
+  <visual>
+    <headlight ambient="0.4 0.4 0.4" diffuse="0.6 0.6 0.6"/>
+    <quality shadowsize="4096"/>
+    <global offwidth="1280" offheight="960"/>
+    <map znear="0.01"/>
+  </visual>
+
+  <asset>
+    <texture name="grid" type="2d" builtin="checker" width="512" height="512"
+             rgb1="0.20 0.22 0.26" rgb2="0.26 0.28 0.33"/>
+    <material name="grid" texture="grid" texrepeat="6 6" reflectance="0.1"/>
+    <material name="dark"   rgba="0.20 0.22 0.25 1"/>
+    <material name="orange" rgba="0.95 0.45 0.10 1"/>
+    <material name="steel"  rgba="0.75 0.78 0.80 1"/>
+    <material name="blue"   rgba="0.15 0.45 0.90 1"/>
+    <material name="green"  rgba="0.20 0.75 0.35 1"/>
+    <material name="tray"   rgba="0.55 0.42 0.28 1"/>
+  </asset>
+
+  <default>
+    <joint damping="1.0" armature="0.1"/>
+    <geom friction="1.0 0.02 0.001" solimp="0.95 0.99 0.001" solref="0.004 1"/>
+    <default class="finger">
+      <geom friction="1.8 0.05 0.002" condim="4"/>
+      <joint damping="5.0"/>
+    </default>
+    <default class="object">
+      <geom condim="4" friction="1.0 0.02 0.001"/>
+    </default>
+  </default>
+
+  <worldbody>
+    <light pos="0.5 -0.6 1.6" dir="-0.3 0.4 -1" directional="true" castshadow="true"/>
+    <geom name="floor" type="plane" size="3 3 0.1" material="grid"/>
+
+    <camera name="demo" pos="1.35 -0.85 0.75" xyaxes="0.55 0.835 0  -0.28 0.185 0.94"/>
+
+    <!-- IK target marker (kinematic only, no collision) -->
+    <body name="target" mocap="true" pos="0.45 0 0.35">
+      <geom type="sphere" size="0.015" rgba="0.2 0.9 0.4 0.5" contype="0" conaffinity="0"/>
+    </body>
+
+    <!-- ===================== 6-DOF arm ===================== -->
+    <body name="base" pos="0 0 0">
+      <geom name="base_geom" type="cylinder" size="0.07 0.05" pos="0 0 0.05"
+            material="dark" mass="4.0"/>
+      <body name="link1" gravcomp="1" pos="0 0 0.10">
+        <joint name="j1" axis="0 0 1" range="-2.96 2.96"/>
+        <geom type="cylinder" size="0.055 0.04" pos="0 0 0.04" material="orange" mass="2.5"/>
+        <body name="link2" gravcomp="1" pos="0 0 0.08">
+          <joint name="j2" axis="0 1 0" range="-1.92 1.92"/>
+          <geom type="box" size="0.045 0.035 0.15" pos="0 0 0.15" material="steel" mass="2.2"/>
+          <body name="link3" gravcomp="1" pos="0 0 0.30">
+            <joint name="j3" axis="0 1 0" range="-2.44 2.44"/>
+            <geom type="box" size="0.0375 0.03 0.125" pos="0 0 0.125" material="orange" mass="1.6"/>
+            <body name="link4" gravcomp="1" pos="0 0 0.25">
+              <joint name="j4" axis="0 0 1" range="-6.2832 6.2832"/>
+              <geom type="cylinder" size="0.045 0.03" pos="0 0 0.03" material="steel" mass="0.9"/>
+              <body name="link5" gravcomp="1" pos="0 0 0.06">
+                <joint name="j5" axis="0 1 0" range="-2.09 2.09"/>
+                <geom type="cylinder" size="0.04 0.03" pos="0 0 0.03" material="orange" mass="0.7"/>
+                <body name="link6" gravcomp="1" pos="0 0 0.06">
+                  <joint name="j6" axis="0 0 1" range="-6.2832 6.2832"/>
+                  <geom type="box" size="0.04 0.025 0.02" pos="0 0 0.02" material="dark" mass="0.5"/>
+                  <site name="tcp" pos="0 0 0.10" size="0.004" rgba="1 0 0 0.6"/>
+                  <body name="finger_left" gravcomp="1" pos="0 0.008 0.04">
+                    <joint name="finger_left" type="slide" axis="0 1 0" range="0 0.035" class="finger"/>
+                    <geom type="box" size="0.01 0.006 0.04" pos="0 0.006 0.04"
+                          material="steel" mass="0.08" class="finger"/>
+                  </body>
+                  <body name="finger_right" gravcomp="1" pos="0 -0.008 0.04">
+                    <joint name="finger_right" type="slide" axis="0 -1 0" range="0 0.035" class="finger"/>
+                    <geom type="box" size="0.01 0.006 0.04" pos="0 -0.006 0.04"
+                          material="steel" mass="0.08" class="finger"/>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+
+    <!-- ===================== scene objects ===================== -->
+    <body name="cube_orange" pos="0.42 -0.12 0.02">
+      <freejoint/>
+      <geom type="box" size="0.02 0.02 0.02" material="orange" mass="0.06" class="object"/>
+    </body>
+    <body name="cube_blue" pos="0.50 0.06 0.02">
+      <freejoint/>
+      <geom type="box" size="0.02 0.02 0.02" material="blue" mass="0.06" class="object"/>
+    </body>
+
+    <body name="tray" pos="0.36 0.26 0">
+      <geom type="box" size="0.09 0.09 0.006" pos="0 0 0.006" material="tray"/>
+      <geom type="box" size="0.09 0.006 0.025" pos="0 0.084 0.025" material="tray"/>
+      <geom type="box" size="0.09 0.006 0.025" pos="0 -0.084 0.025" material="tray"/>
+      <geom type="box" size="0.006 0.09 0.025" pos="0.084 0 0.025" material="tray"/>
+      <geom type="box" size="0.006 0.09 0.025" pos="-0.084 0 0.025" material="tray"/>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <position name="a1" joint="j1" kp="300" kv="30" ctrlrange="-2.96 2.96" forcerange="-150 150"/>
+    <position name="a2" joint="j2" kp="400" kv="40" ctrlrange="-1.92 1.92" forcerange="-150 150"/>
+    <position name="a3" joint="j3" kp="300" kv="30" ctrlrange="-2.44 2.44" forcerange="-120 120"/>
+    <position name="a4" joint="j4" kp="100" kv="10" ctrlrange="-6.2832 6.2832" forcerange="-60 60"/>
+    <position name="a5" joint="j5" kp="100" kv="10" ctrlrange="-2.09 2.09" forcerange="-60 60"/>
+    <position name="a6" joint="j6" kp="60"  kv="6"  ctrlrange="-6.2832 6.2832" forcerange="-40 40"/>
+    <position name="grip_left"  joint="finger_left"  kp="120" kv="8" ctrlrange="0 0.035" forcerange="-40 40"/>
+    <position name="grip_right" joint="finger_right" kp="120" kv="8" ctrlrange="0 0.035" forcerange="-40 40"/>
+  </actuator>
+</mujoco>

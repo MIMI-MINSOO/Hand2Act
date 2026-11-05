@@ -1,0 +1,7 @@
+numpy>=1.26
+scipy>=1.11
+opencv-python>=4.8      # ChArUco API(CharucoDetector, matchImagePoints)는 4.7+
+mediapipe>=0.10.14
+mujoco>=3.1
+pyyaml>=6.0
+pytest>=8.0
