@@ -117,7 +117,7 @@ def main():
             if sim is not None and sim.last is not None:
                 hud += f"  IK {'ok' if sim.last.converged else 'FAIL'} ({sim.last.pos_err * 1000:.0f}mm)"
             if buf is not None:
-                hud += f"  ● REC {len(buf)}"
+                hud += f"  REC {len(buf)}"
             cv2.putText(vis, hud, (12, vis.shape[0] - 16), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
             cv2.imshow("hand-pose-data", cv2.resize(vis, None, fx=0.6, fy=0.6) if vis.shape[1] > 1600 else vis)
 

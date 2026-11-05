@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 
 import cv2
@@ -17,7 +18,11 @@ class FrameSource:
     def __init__(self, src, stride: int = 1, max_frames: int | None = None,
                  width: int | None = None, height: int | None = None):
         self.is_file = isinstance(src, str) and not src.isdigit() and "://" not in src
-        self.cap = cv2.VideoCapture(int(src) if str(src).isdigit() else src)
+        if str(src).isdigit() and os.name == "nt":
+            # Windows 기본(MSMF) 백엔드는 웹캠 열기가 느리고 해상도 설정이 잘 안 먹음 → DirectShow
+            self.cap = cv2.VideoCapture(int(src), cv2.CAP_DSHOW)
+        else:
+            self.cap = cv2.VideoCapture(int(src) if str(src).isdigit() else src)
         if not self.cap.isOpened():
             raise IOError(f"소스를 열 수 없음: {src}")
         if width and height and not self.is_file:
