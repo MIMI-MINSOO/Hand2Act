@@ -1,4 +1,4 @@
-# hand-pose-data
+# Hand2Act
 
 머리에 단 카메라(iPhone) 영상에서 맨손을 추적해 **로봇 base 기준 EE 위치·자세(6DoF) + 그리퍼 개폐(1)** 를
 metric으로 뽑아 로봇 데이터로 저장하는 파이프라인. [hand-control-robot](https://github.com/advaithdasu/hand-control-robot)
@@ -21,12 +21,38 @@ iPhone(머리) ─▶ MediaPipe 2D 21kp ─▶ 손바닥 PnP (IPPE + LM) ─▶ 
 
 ## 설치
 
+Linux / macOS
 ```bash
 python -m venv .venv && source .venv/bin/activate      # Python 3.10–3.12 권장
 pip install -r requirements.txt
-bash scripts/download_model.sh                          # MediaPipe 모델
-python -m pytest tests -q                               # 합성 데이터 테스트 18개
+python -m pytest tests -q                               # 합성 데이터 테스트
 ```
+
+Windows (PowerShell 5.1은 `&&` 미지원 → 한 줄씩)
+```powershell
+cd C:\Users\<사용자>\Projects\Hand2Act
+py -3.12 -m venv .venv
+.venv\Scripts\python -m pip install -r requirements.txt
+```
+MediaPipe 모델(`assets/hand_landmarker.task`)은 처음 실행할 때 자동으로 받습니다.
+
+## 빠른 테스트 (캘리브레이션 없이 노트북 웹캠)
+
+```powershell
+.venv\Scripts\python -m handdata.apps.quicktest --wrist-middle 0.09
+```
+- `--wrist-middle`: 손목 관절 ~ 가운뎃손가락 뿌리 관절(주먹 쥘 때 튀어나오는 마디) 길이를 자로 잰 값 [m]
+- 시작하면 손을 펴서 카메라를 향해 1~2초 들고 있기 → 손 모델 자동 생성 (`k`로 다시)
+- 근사 K(화각 `--hfov`, 기본 65°)를 쓰므로 **깊이는 f 오차에 비례해서 틀림**. 줄자로 손을 카메라에서
+  50cm에 두고 화면의 z가 50cm가 되도록 `--hfov`를 조정하면 대략 맞출 수 있음 (z ∝ f)
+- 왼손이면 `--set hand.side=left`, 외장 웹캠이면 `--camera 1`
+
+확인할 것
+1. 초록 원(손 모델 재투영)이 빨간 점(검출)과 겹치는지 — reproj 수 px 이하
+2. 손을 돌리면 palm 좌표축이 같이 도는지, 뒤집힌 축으로 튀는 프레임(flip)이 없는지
+3. 손을 카메라 쪽으로 당기면 z가 줄고, 우측 하단 top view의 점이 아래로 내려가는지
+4. 엄지·검지를 붙이면 gripper가 0 쪽으로 가는지
+5. `r`로 기록하면 `data/quicktest/qt_*/episode.npz`에 카메라 기준 EE(`ee_pos_cam`, `ee_quat_cam`) 저장
 
 ## 사용 순서
 
@@ -107,7 +133,7 @@ handdata/
   calib/     make_board, intrinsics, hand_model, gripper_range
   robot/     retarget(손→EE·그리퍼), kinematics(MuJoCo 범용), ik(DLS)
   dataio/    episode (npz + json 저장/로드)
-  apps/      offline, live, postprocess, eval_board_gt, eval_marker_gt
+  apps/      quicktest, offline, live, postprocess, eval_board_gt, eval_marker_gt
   pipeline.py  프레임 단위 처리 (이미지와 분리 → live/offline/테스트 공용)
   viz.py       오버레이
 configs/default.yaml   assets/demo_arm.xml   tests/

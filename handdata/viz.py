@@ -18,7 +18,8 @@ def draw_axes(img, intr: Intrinsics, T: np.ndarray, length: float = 0.05, thickn
     cv2.drawFrameAxes(img, intr.K, intr.dist, rvec, tvec, length, thickness)
 
 
-def draw_frame(img, intr: Intrinsics, r: FrameResult, model_palm: np.ndarray | None = None):
+def draw_frame(img, intr: Intrinsics, r: FrameResult, model_palm: np.ndarray | None = None,
+               hud: bool = True):
     out = img
     if not np.any(np.isnan(r.uv)):
         pts = r.uv.astype(int)
@@ -33,6 +34,8 @@ def draw_frame(img, intr: Intrinsics, r: FrameResult, model_palm: np.ndarray | N
         P = model_palm @ r.T_cam_hand[:3, :3].T + r.T_cam_hand[:3, 3]
         for p in intr.project(P).astype(int):
             cv2.circle(out, tuple(p), 7, (0, 255, 0), 1)
+    if not hud:
+        return out
 
     flags = [n for b, n in FLAG_NAMES.items() if r.flags & b]
     lines = [f"t={r.t:6.2f}s  {'VALID' if r.valid else 'INVALID'}  {' '.join(flags)}",
@@ -40,8 +43,12 @@ def draw_frame(img, intr: Intrinsics, r: FrameResult, model_palm: np.ndarray | N
     if r.valid:
         p = r.ee_pos
         lines.append(f"EE[base] x={p[0]:+.3f} y={p[1]:+.3f} z={p[2]:+.3f} m")
-    for k, s in enumerate(lines):
-        cv2.putText(out, s, (12, 28 + 26 * k), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 4, cv2.LINE_AA)
-        cv2.putText(out, s, (12, 28 + 26 * k), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
-                    (80, 255, 80) if r.valid else (80, 80, 255), 2, cv2.LINE_AA)
+    put_lines(out, lines, (80, 255, 80) if r.valid else (80, 80, 255))
     return out
+
+
+def put_lines(img, lines, color=(80, 255, 80), y0=28, scale=0.7):
+    for k, s in enumerate(lines):
+        y = y0 + int(36 * scale) * k
+        cv2.putText(img, s, (12, y), cv2.FONT_HERSHEY_SIMPLEX, scale, (0, 0, 0), 4, cv2.LINE_AA)
+        cv2.putText(img, s, (12, y), cv2.FONT_HERSHEY_SIMPLEX, scale, color, 2, cv2.LINE_AA)

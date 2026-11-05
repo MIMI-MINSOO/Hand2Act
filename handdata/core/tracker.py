@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -25,6 +26,23 @@ class HandDetection:
     side_matched: bool   # 설정한 손(hand.side)과 일치 여부
 
 
+MODEL_URL = ("https://storage.googleapis.com/mediapipe-models/hand_landmarker/"
+             "hand_landmarker/float16/latest/hand_landmarker.task")
+
+
+def ensure_model(path) -> None:
+    """MediaPipe 모델이 없으면 자동 다운로드 (~7.8MB)."""
+    path = Path(path)
+    if path.exists():
+        return
+    import urllib.request
+    path.parent.mkdir(parents=True, exist_ok=True)
+    print(f"MediaPipe 모델 다운로드 중 → {path}")
+    tmp = path.with_suffix(".part")
+    urllib.request.urlretrieve(MODEL_URL, tmp)
+    tmp.replace(path)
+
+
 def _flip(side: str) -> str:
     return "left" if side == "right" else "right"
 
@@ -38,8 +56,11 @@ class HandTracker:
         from mediapipe.tasks.python.vision import (HandLandmarker, HandLandmarkerOptions,
                                                    RunningMode)
         self._mp = mp
+        ensure_model(model_path)
         opts = HandLandmarkerOptions(
-            base_options=BaseOptions(model_asset_path=str(model_path)),
+            # 경로 대신 바이트로 전달: Windows에서 경로에 한글(예: C:\Users\박민수)이 있으면
+            # MediaPipe가 파일을 못 여는 문제가 있음
+            base_options=BaseOptions(model_asset_buffer=Path(model_path).read_bytes()),
             running_mode=RunningMode.VIDEO,
             num_hands=2,  # 2개까지 검출 후 target_side 선택
             min_hand_detection_confidence=min_detection_conf,
