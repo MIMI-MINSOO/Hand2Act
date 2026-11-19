@@ -44,17 +44,17 @@ class SimView:
         self.solver = DLSSolver(self.kin, cfg.robot.ik)
         self.data = mujoco.MjData(self.kin.model)
         self.q = np.asarray(cfg.robot.home_q, float)
+        from ..robot.kinematics import gripper_open_values
         gj = cfg.robot.get("gripper_joints", []) or []
         self.g_adr = [self.kin.model.joint(n).qposadr[0] for n in gj]
-        self.g_lo, self.g_hi = cfg.robot.get("gripper_joint_range", [0.0, 0.0])
+        self.g_open = gripper_open_values(self.kin.model, gj)      # 관절 범위에서 계산 (축 방향 반대여도 OK)
         self.viewer = mujoco.viewer.launch_passive(self.kin.model, self.data)
         self.last = None
         self._apply(0.5)
 
     def _apply(self, g):
         self.data.qpos[self.kin.qpos_adr] = self.q
-        for adr in self.g_adr:
-            self.data.qpos[adr] = self.g_lo + g * (self.g_hi - self.g_lo)
+        self.data.qpos[self.g_adr] = g * self.g_open
         self.mj.mj_forward(self.kin.model, self.data)
         self.viewer.sync()
 

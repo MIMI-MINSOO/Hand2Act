@@ -46,3 +46,8 @@ checkpoints/
 outputs/
 runs/
 wandb/
+
+# --- 외부 파일에서 생성 (scripts/build_wego_dual.py) ---
+# AgileX agx_arm_sim 공식 MuJoCo 모델 사본(저장소에 라이선스 미명시) + WeGo CAD 파생 메쉬 → 공개 저장소에 올리지 않음
+assets/nero/
+MUJOCO_LOG.TXT

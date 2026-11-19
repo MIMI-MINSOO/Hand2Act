@@ -1,0 +1,43 @@
+# WeGo NERO 양팔 (AgileX 공식 MuJoCo 팔 모델 + WeGo CAD 배치) — default.yaml 위에 로봇 관련 항목만 덮어씀
+#   모델 생성: python scripts/build_wego_dual.py --nero-dir ../agx_arm_sim/mujoco/agilex_arm/agilex_nero --wego-stl "<...>.stl"
+#   teleop   : python -m handdata.apps.teleop --config configs/nero_dual.yaml
+extends: default.yaml
+
+# live.py / postprocess 등 단팔 경로에서 쓰는 기본 로봇 = 오른팔
+robot:
+  mjcf: assets/nero/nero_dual.xml
+  joints: [right_joint1, right_joint2, right_joint3, right_joint4, right_joint5, right_joint6, right_joint7]
+  ee_site: right_tcp
+  home_q: [2.008, 0.503, -0.049, 1.441, 0.05, 0.057, 1.191]
+  gripper_joints: [right_gripper_joint1, right_gripper_joint2]   # 열림 값은 관절 범위에서 자동 (0~0.05 / -0.05~0)
+  ik:
+    max_iters: 40
+    max_pos_err: 0.10
+
+# 양팔 teleop (apps/teleop.py). 홈 = TCP (0.40, ∓0.20, 테이블+0.15), 그리퍼 수직 아래 (IK로 산출)
+arms:
+  right:
+    joints: [right_joint1, right_joint2, right_joint3, right_joint4, right_joint5, right_joint6, right_joint7]
+    ee_site: right_tcp
+    home_q: [2.008, 0.503, -0.049, 1.441, 0.05, 0.057, 1.191]
+    gripper_joints: [right_gripper_joint1, right_gripper_joint2]
+    actuators: [right_joint1, right_joint2, right_joint3, right_joint4, right_joint5, right_joint6, right_joint7]
+    gripper_actuator: right_gripper
+  left:
+    joints: [left_joint1, left_joint2, left_joint3, left_joint4, left_joint5, left_joint6, left_joint7]
+    ee_site: left_tcp
+    home_q: [-1.475, 0.51, 0.137, 1.46, -0.083, -0.025, 1.184]
+    gripper_joints: [left_gripper_joint1, left_gripper_joint2]
+    actuators: [left_joint1, left_joint2, left_joint3, left_joint4, left_joint5, left_joint6, left_joint7]
+    gripper_actuator: left_gripper
+
+teleop:
+  # 카메라 축을 로봇 base 축으로 표현 (parse_axes 규약). 기본: 카메라가 사람을 마주보고,
+  # 사람과 로봇이 같은 방향(카메라 쪽 = 로봇 앞 +x)을 봄
+  #   cam x(화면 오른쪽 = 사람의 왼쪽) → base +y,  cam y(아래) → base -z,  cam z(카메라→사람) → base -x
+  cam_axes_in_base: [y, -z, -x]
+  pos_scale: 1.0           # 손 이동량 × scale = 로봇 이동량
+  rot_scale: 1.0           # 1.0 = 손 회전 그대로, 0 = 자세 고정(위치만)
+  max_reproj_px: 12.0      # 근사 K에서는 재투영 오차가 커서 live 기준(6px)보다 느슨하게
+  hold_sec: 0.4            # 이보다 오래 손이 안 보이면 다시 보일 때 그 자리에서 재-anchor (clutch)
+  viewer: {azimuth: 0, elevation: -35, distance: 1.6, lookat: [0.35, 0.0, 0.95]}   # 로봇 뒤에서 앞(+x)을 봄

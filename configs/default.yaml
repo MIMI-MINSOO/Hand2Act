@@ -78,7 +78,6 @@ robot:
   ee_site: tcp
   home_q: [0.0, 0.55, 0.85, 0.0, 0.75, 0.0]
   gripper_joints: [finger_left, finger_right]
-  gripper_joint_range: [0.0, 0.035]  # g=0 → 앞 값, g=1 → 뒤 값
   ik:
     max_iters: 30
     pos_tol: 0.002

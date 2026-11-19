@@ -81,6 +81,30 @@ class HandTracker:
                    h.get("min_presence_conf", 0.5), h.get("min_tracking_conf", 0.5))
 
     def detect(self, bgr: np.ndarray, t_sec: float) -> HandDetection | None:
+        cands = self.detect_all(bgr, t_sec)
+        matched = [c for c in cands if c.side_matched]
+        if matched:
+            return max(matched, key=lambda c: c.score)
+        if self.accept_other_side and len(cands) == 1:
+            return cands[0]   # 한 손만 보이면 handedness 오분류로 보고 사용 (side_matched=False 기록)
+        return None
+
+    def detect_both(self, bgr: np.ndarray, t_sec: float) -> dict:
+        """양손 teleop용 → {'right': det, 'left': det} (보이는 손만).
+
+        두 손이 같은 쪽으로 분류되면 화면 위치로 다시 나눔: 미러링 안 된 영상에서 오른손은 화면 왼쪽.
+        """
+        cands = self.detect_all(bgr, t_sec)
+        if len(cands) == 2 and cands[0].side == cands[1].side:
+            a, b = sorted(cands, key=lambda c: c.uv[0, 0])          # 손목 x 기준 화면 왼쪽부터
+            left_on_screen = "left" if self.input_mirrored else "right"
+            a.side, b.side = left_on_screen, _flip(left_on_screen)
+        out = {}
+        for c in sorted(cands, key=lambda c: c.score):
+            out[c.side] = c
+        return out
+
+    def detect_all(self, bgr: np.ndarray, t_sec: float) -> list:
         ms = int(round(t_sec * 1000))
         if ms <= self._last_ms:          # VIDEO 모드는 timestamp가 엄격히 증가해야 함
             ms = self._last_ms + 1
@@ -91,7 +115,7 @@ class HandTracker:
         res = self._lm.detect_for_video(self._mp.Image(image_format=self._mp.ImageFormat.SRGB,
                                                        data=rgb), ms)
         if not res.hand_landmarks:
-            return None
+            return []
 
         cands = []
         for i, lms in enumerate(res.hand_landmarks):
@@ -104,13 +128,7 @@ class HandTracker:
             world = np.array([[p.x, p.y, p.z] for p in res.hand_world_landmarks[i]])
             cands.append(HandDetection(uvz[:, :2].copy(), uvz, world, side, float(cat.score),
                                        side == self.target_side))
-
-        matched = [c for c in cands if c.side_matched]
-        if matched:
-            return max(matched, key=lambda c: c.score)
-        if self.accept_other_side and len(cands) == 1:
-            return cands[0]   # 한 손만 보이면 handedness 오분류로 보고 사용 (side_matched=False 기록)
-        return None
+        return cands
 
     def close(self) -> None:
         self._lm.close()

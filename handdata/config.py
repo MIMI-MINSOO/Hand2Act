@@ -41,10 +41,24 @@ def _unwrap(x):
     return x
 
 
+def _deep_merge(base: dict, over: dict) -> dict:
+    out = dict(base)
+    for k, v in over.items():
+        out[k] = _deep_merge(out[k], v) if isinstance(v, dict) and isinstance(out.get(k), dict) else v
+    return out
+
+
+def _read_yaml(path: Path) -> dict:
+    """`extends: other.yaml` (같은 폴더 기준)이 있으면 그 파일 위에 덮어씀. 로봇별 config에서 사용."""
+    d = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    parent = d.pop("extends", None)
+    return _deep_merge(_read_yaml((path.parent / parent).resolve()), d) if parent else d
+
+
 def load_config(path="configs/default.yaml", overrides=None) -> Cfg:
     """overrides: ["lifting.finger_method=ray_bone", "board.square_length=0.034"] (ablation용)."""
     path = Path(path).resolve()
-    cfg = _wrap(yaml.safe_load(path.read_text()))
+    cfg = _wrap(_read_yaml(path))
     cfg["_root"] = str(path.parent.parent)   # configs/ 의 상위 = 프로젝트 루트
     for item in overrides or []:
         key, _, val = item.partition("=")

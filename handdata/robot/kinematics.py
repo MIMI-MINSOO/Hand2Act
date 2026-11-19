@@ -10,6 +10,24 @@ import mujoco
 import numpy as np
 
 
+def gripper_open_values(model: mujoco.MjModel, joint_names) -> np.ndarray:
+    """손가락 관절별 '완전히 열림' qpos. 닫힘 = 0, 열림 = 관절 범위에서 0과 먼 쪽 끝.
+
+    AgileX 공식 모델처럼 두 손가락 축이 반대(0~0.05 / -0.05~0)여도 g ∈ [0,1] 하나로 제어:
+        qpos = g · open
+    """
+    out = []
+    for n in joint_names:
+        lo, hi = model.joint(n).range
+        out.append(hi if abs(hi) >= abs(lo) else lo)
+    return np.asarray(out, float)
+
+
+def actuator_open_value(model: mujoco.MjModel, name: str) -> float:
+    lo, hi = model.actuator(name).ctrlrange
+    return float(hi if abs(hi) >= abs(lo) else lo)
+
+
 class MjKinematics:
     def __init__(self, mjcf_path, joint_names, site_name, model: mujoco.MjModel | None = None):
         self.model = model or mujoco.MjModel.from_xml_path(str(mjcf_path))
