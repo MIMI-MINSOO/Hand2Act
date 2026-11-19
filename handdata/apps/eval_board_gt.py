@@ -88,7 +88,7 @@ def main():
 
     out = Path(cfg.resolve(a.out))
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(res, indent=2, ensure_ascii=False))
+    out.write_text(encoding="utf-8", data=json.dumps(res, indent=2, ensure_ascii=False))
     print(f"프레임 {res['palm_mm']['n']}개, 거리 median {res['distance_m']['median']:.2f}m")
     for k in ["palm_mm", "wrist_mm", "fingertip_mm", "depth_mm", "normal_deg"]:
         s = res[k]

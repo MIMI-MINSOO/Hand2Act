@@ -19,7 +19,7 @@ from ..core.landmarks import INDEX_TIP, MIDDLE_MCP, PALM, THUMB_TIP, WRIST
 def load_gripper_range(path, default_closed=0.015, default_open=0.09):
     p = Path(path)
     if p.exists():
-        d = json.loads(p.read_text())
+        d = json.loads(p.read_text(encoding="utf-8"))
         return float(d["d_closed"]), float(d["d_open"]), True
     return default_closed, default_open, False
 

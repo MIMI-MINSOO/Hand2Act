@@ -93,7 +93,7 @@ def main():
            "T_palm_marker_mean": {"t": t_mean.tolist(), "R": R_mean.tolist()}}
     out = Path(cfg.resolve(a.out))
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(res, indent=2))
+    out.write_text(encoding="utf-8", data=json.dumps(res, indent=2))
     print(f"프레임 {len(Xs)}개, 거리 median {np.median(dist):.2f}m")
     print(f"  위치 잔차 median {np.median(pos_mm):.1f}mm  p90 {np.percentile(pos_mm, 90):.1f}mm")
     print(f"  회전 잔차 median {np.median(rot_deg):.1f}°   p90 {np.percentile(rot_deg, 90):.1f}°")

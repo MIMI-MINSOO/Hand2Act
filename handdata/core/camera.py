@@ -21,13 +21,13 @@ class Intrinsics:
 
     @classmethod
     def load(cls, path) -> "Intrinsics":
-        d = json.loads(Path(path).read_text())
+        d = json.loads(Path(path).read_text(encoding="utf-8"))
         return cls(np.array(d["K"], float), np.array(d["dist"], float).reshape(-1),
                    int(d["width"]), int(d["height"]), float(d.get("rms", "nan")), d.get("meta", {}))
 
     def save(self, path) -> None:
         Path(path).parent.mkdir(parents=True, exist_ok=True)
-        Path(path).write_text(json.dumps({
+        Path(path).write_text(encoding="utf-8", data=json.dumps({
             "K": self.K.tolist(), "dist": self.dist.tolist(),
             "width": self.width, "height": self.height, "rms": self.rms, "meta": self.meta,
         }, indent=2))

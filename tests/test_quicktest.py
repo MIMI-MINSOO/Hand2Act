@@ -1,5 +1,6 @@
 """quicktest 경로: 근사 K + 자 방식 즉석 손 모델 + 보드 없이 카메라 기준 EE."""
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -56,6 +57,7 @@ def test_quicktest_runs_headless(tmp_path):
         vw.write(np.full((480, 640, 3), 120, np.uint8))
     vw.release()
     r = subprocess.run([sys.executable, "-m", "handdata.apps.quicktest", "--video", str(vid),
-                        "--no-window", "--max-frames", "15"], cwd=ROOT, capture_output=True, text=True)
+                        "--no-window", "--max-frames", "15"], cwd=ROOT, capture_output=True,
+                       encoding="utf-8", env={**os.environ, "PYTHONIOENCODING": "utf-8"})
     assert r.returncode == 0, r.stderr[-2000:]
     assert "근사 K" in r.stdout

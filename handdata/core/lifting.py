@@ -54,7 +54,7 @@ class HandModel:
 
     def save(self, path) -> None:
         Path(path).parent.mkdir(parents=True, exist_ok=True)
-        Path(path).write_text(json.dumps({
+        Path(path).write_text(encoding="utf-8", data=json.dumps({
             "side": self.side, "method": self.method, "h_offset": self.h_offset,
             "n_frames": self.n_frames, "std_mm": list(map(float, self.std_mm)),
             "palm": self.palm.tolist(), "all21": self.all21.tolist(),
@@ -63,7 +63,7 @@ class HandModel:
 
     @classmethod
     def load(cls, path) -> "HandModel":
-        d = json.loads(Path(path).read_text())
+        d = json.loads(Path(path).read_text(encoding="utf-8"))
         return cls(d["side"], np.array(d["palm"]), np.array(d["all21"]), d.get("method", "board"),
                    d.get("h_offset", 0.0), d.get("n_frames", 0), d.get("std_mm", []), d.get("meta", {}))
 
@@ -156,7 +156,10 @@ class PalmLifter:
         if self.refine_lm:
             rvec, tvec = rvec_tvec_from_T(T)
             rvec, tvec = cv2.solvePnPRefineLM(obj, img, K, dist, rvec, tvec)
-            T = T_from_rvec_tvec(rvec, tvec)
+            T_ref = T_from_rvec_tvec(rvec, tvec)
+            # 핀홀에서는 -X도 같은 픽셀로 투영되므로 LM이 카메라 뒤 거울해로 넘어갈 수 있음 → 그때는 refine 버림
+            if np.all(apply_T(T_ref, obj)[:, 2] > 0):
+                T = T_ref
 
         proj = self.intr.project(apply_T(T, obj))
         err = float(np.sqrt(np.mean(np.sum((proj - img) ** 2, axis=1))))

@@ -1,6 +1,7 @@
 """보드 렌더링 → 검출/pose/캘리브레이션, 파이프라인·저장·후처리·IK 통합 테스트 (합성 데이터)."""
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -118,7 +119,7 @@ def test_flags_and_save_load(tmp_path):
     save_episode(tmp_path, arr, {"x": 1})
     back = load_episode(tmp_path)
     assert np.array_equal(back["flags"], arr["flags"])
-    assert json.loads((tmp_path / "meta.json").read_text())["episode"]["n_frames"] == 2
+    assert json.loads((tmp_path / "meta.json").read_text(encoding="utf-8"))["episode"]["n_frames"] == 2
 
 
 def test_ik_reaches_fk_targets():
@@ -143,11 +144,11 @@ def test_offline_stage2_and_postprocess_cli(tmp_path):
     calib = tmp_path / "calib"
     intr.save(calib / "intrinsics.json")
     model.save(calib / "hand_model.json")
-    (calib / "gripper_range.json").write_text(json.dumps({"d_closed": 0.01, "d_open": 0.1}))
-    cfg_text = (ROOT / "configs/default.yaml").read_text().replace(
+    (calib / "gripper_range.json").write_text(encoding="utf-8", data=json.dumps({"d_closed": 0.01, "d_open": 0.1}))
+    cfg_text = (ROOT / "configs/default.yaml").read_text(encoding="utf-8").replace(
         "assets/demo_arm.xml", str(ROOT / "assets/demo_arm.xml"))
     (tmp_path / "configs").mkdir()
-    (tmp_path / "configs/default.yaml").write_text(cfg_text)
+    (tmp_path / "configs/default.yaml").write_text(encoding="utf-8", data=cfg_text)
 
     rng = np.random.default_rng(6)
     T_cam_board = board_pose_true(rng)
@@ -164,7 +165,8 @@ def test_offline_stage2_and_postprocess_cli(tmp_path):
     ep = tmp_path / "ep"
     save_detections(ep / "detections.npz", ts, dets, boards, {"video": "synthetic", "stride": 1, "fps": 30})
 
-    run = lambda *args: subprocess.run([sys.executable, "-m", *args], cwd=ROOT, capture_output=True, text=True)
+    run = lambda *args: subprocess.run([sys.executable, "-m", *args], cwd=ROOT, capture_output=True,
+                                       encoding="utf-8", env={**os.environ, "PYTHONIOENCODING": "utf-8"})
     r1 = run("handdata.apps.offline", "--config", str(tmp_path / "configs/default.yaml"),
              "--video", "unused.mp4", "--out", str(ep), "--reuse-detections")
     assert r1.returncode == 0, r1.stderr

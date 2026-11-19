@@ -118,9 +118,9 @@ def save_episode(out_dir, arrays: dict, meta: dict, name: str = "episode.npz") -
             "n_frames": int(len(arrays["t"])), "n_valid": int(np.sum(arrays["valid"])),
             "flag_counts": flag_summary(arrays["flags"]), **meta}
     mp = out / "meta.json"
-    old = json.loads(mp.read_text()) if mp.exists() else {}
+    old = json.loads(mp.read_text(encoding="utf-8")) if mp.exists() else {}
     old[name.replace(".npz", "")] = meta
-    mp.write_text(json.dumps(old, indent=2, ensure_ascii=False, default=str))
+    mp.write_text(encoding="utf-8", data=json.dumps(old, indent=2, ensure_ascii=False, default=str))
     return out / name
 
 

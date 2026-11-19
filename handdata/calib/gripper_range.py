@@ -47,7 +47,7 @@ def main():
     ds = np.array(ds)
     lo, hi = np.percentile(ds, a.low_pct), np.percentile(ds, a.high_pct)
     out = cfg.resolve(a.out or cfg.paths.gripper_range)
-    out.write_text(json.dumps({"d_closed": float(lo), "d_open": float(hi), "n": int(len(ds)),
+    out.write_text(encoding="utf-8", data=json.dumps({"d_closed": float(lo), "d_open": float(hi), "n": int(len(ds)),
                                "pct": [a.low_pct, a.high_pct]}, indent=2))
     print(f"엄지–검지 거리: 닫힘 {lo * 100:.1f}cm, 열림 {hi * 100:.1f}cm (n={len(ds)})\n저장: {out}")
 
