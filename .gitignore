@@ -5,7 +5,9 @@ assets/hand_landmarker.task
 calib/*.json
 calib/*.png
 calib/*.jpg
+calib/realsense_probe/
 calib_raw/
+configs/stereo.yaml
 data/
 results/
 eval/

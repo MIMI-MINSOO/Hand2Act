@@ -1,0 +1,31 @@
+# ChArUco board configuration - A4 40 mm version
+# Units: meters (m), except fields ending in _mm
+# Print the accompanying PDF at 100% (Actual size).
+
+# OpenCV ChArUcoBoard settings
+squaresX=5
+squaresY=7
+squareLength=0.040
+markerLength=0.024
+arucoDictionary=DICT_6X6_250
+
+# Physical dimensions (reference)
+boardWidth_mm=200
+boardHeight_mm=280
+squareLength_mm=40
+markerLength_mm=24
+markerCount=17
+charucoCornerCount=24
+
+# A4 paper and placement (reference)
+paperWidth_mm=210
+paperHeight_mm=297
+marginLeft_mm=5
+marginRight_mm=5
+marginTop_mm=8.5
+marginBottom_mm=8.5
+
+# Marker IDs are sequential, starting from 0.
+# OpenCV example:
+# dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
+# board = cv2.aruco.CharucoBoard((5, 7), 0.040, 0.024, dictionary)

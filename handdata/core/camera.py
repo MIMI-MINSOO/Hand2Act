@@ -60,3 +60,37 @@ class Intrinsics:
         P = np.asarray(P_cam, np.float64).reshape(-1, 1, 3)
         uv, _ = cv2.projectPoints(P, np.zeros(3), np.zeros(3), self.K, self.dist)
         return uv.reshape(-1, 2)
+
+
+def intrinsics_from_realsense(rs_intrinsics, *, serial: str, fps: int) -> Intrinsics:
+    """Convert a factory color profile to the OpenCV model used here.
+
+    Only unmodified Brown-Conrady uses the same equations and coefficient
+    ordering as ``cv2.projectPoints``. Other RealSense variants are rejected
+    rather than being silently misinterpreted.
+    """
+    model = str(rs_intrinsics.model).strip().lower().replace("_", " ")
+    if model.startswith("distortion."):
+        model = model.split(".", 1)[1]
+    coeffs = np.asarray(rs_intrinsics.coeffs, float)
+    zero_distortion = bool(np.all(coeffs == 0.0))
+    if model not in {"none", "brown conrady"} and not zero_distortion:
+        raise ValueError(
+            f"unsupported RealSense distortion model for OpenCV: {rs_intrinsics.model!s}")
+    opencv_model = "none" if model == "none" or zero_distortion else "brown conrady"
+    dist = np.zeros(5, dtype=float) if opencv_model == "none" else coeffs
+    K = np.array([[rs_intrinsics.fx, 0.0, rs_intrinsics.ppx],
+                  [0.0, rs_intrinsics.fy, rs_intrinsics.ppy],
+                  [0.0, 0.0, 1.0]], dtype=float)
+    return Intrinsics(
+        K, dist, int(rs_intrinsics.width), int(rs_intrinsics.height),
+        meta={
+            "source": "realsense_factory_color",
+            "serial": str(serial),
+            "fps": int(fps),
+            "realsense_distortion_model": str(rs_intrinsics.model),
+            "opencv_distortion_model": opencv_model,
+            "distortion_conversion": ("zero_coefficients_equivalent_to_none"
+                                      if model not in {"none", "brown conrady"}
+                                      else "direct"),
+        })

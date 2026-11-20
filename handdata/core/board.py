@@ -35,7 +35,12 @@ class CharucoTarget:
 
     # ------------------------------------------------------------ 검출
     def detect(self, img: np.ndarray):
-        """→ (obj_points (N,3), img_points (N,2)) 또는 None."""
+        """Return ``(object_points, image_points)`` for backward compatibility."""
+        found = self.detect_with_ids(img)
+        return None if found is None else found[:2]
+
+    def detect_with_ids(self, img: np.ndarray):
+        """Return object points, image points and matching ChArUco corner IDs."""
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
         corners, ids, _, _ = self.detector.detectBoard(gray)
         if ids is None or len(ids) < self.min_corners:
@@ -45,7 +50,7 @@ class CharucoTarget:
         imgp = np.asarray(imgp, np.float64).reshape(-1, 2)
         if not self._spread_ok(obj):
             return None  # 코너가 한 줄에 몰리면 pose가 퇴화함
-        return obj, imgp
+        return obj, imgp, np.asarray(ids, np.int32).reshape(-1)
 
     def _spread_ok(self, obj: np.ndarray) -> bool:
         hull = cv2.convexHull(obj[:, :2].astype(np.float32))

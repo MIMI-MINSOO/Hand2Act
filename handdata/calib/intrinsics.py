@@ -9,6 +9,7 @@ iPhone은 영상 안정화(OIS/EIS)와 자동 줌 전환을 끄고 촬영 (켜�
 from __future__ import annotations
 
 import argparse
+import json
 
 import cv2
 import numpy as np
@@ -17,6 +18,83 @@ from ..config import add_config_args, load_config
 from ..core.board import CharucoTarget
 from ..core.camera import Intrinsics
 from ..core.video import add_source_args, open_source
+
+
+def require_verified_board(cfg) -> dict:
+    """Return measured board values, or block metric calibration/validation."""
+    required_true = ("dictionary_verified", "layout_verified", "legacy_pattern_verified",
+                     "print_scale_verified", "flatness_verified")
+    verification = cfg.get("verification", {})
+    missing = []
+    if not cfg.get("physical_verified", False):
+        missing.append("physical_verified=true")
+    missing.extend(f"verification.{key}=true" for key in required_true
+                   if not verification.get(key, False))
+    measured_keys = ("measured_board_width_m", "measured_board_height_m",
+                     "measured_square_length_m", "measured_marker_length_m")
+    for key in measured_keys:
+        if not verification.get(key):
+            missing.append(f"verification.{key}=<measured value>")
+    if missing:
+        raise ValueError("physical ChArUco board is not verified; required: " + ", ".join(missing))
+    square = float(verification["measured_square_length_m"])
+    marker = float(verification["measured_marker_length_m"])
+    width = float(verification["measured_board_width_m"])
+    height = float(verification["measured_board_height_m"])
+    expected_width = int(cfg.squares_x) * square
+    expected_height = int(cfg.squares_y) * square
+    if not np.isclose(width, expected_width, atol=1e-3, rtol=0):
+        raise ValueError("measured board width conflicts with squares_x * measured square length")
+    if not np.isclose(height, expected_height, atol=1e-3, rtol=0):
+        raise ValueError("measured board height conflicts with squares_y * measured square length")
+    reference_square = float(cfg.square_length)
+    reference_marker = float(cfg.marker_length)
+    reference = cfg.get("reference", {})
+    reference_width = float(reference.get("board_width_m", int(cfg.squares_x) * reference_square))
+    reference_height = float(reference.get("board_height_m", int(cfg.squares_y) * reference_square))
+    # Physical measurements are authoritative for metric geometry.
+    cfg["square_length"] = square
+    cfg["marker_length"] = marker
+    return {
+        "physical_verified": True,
+        "dictionary": str(cfg.dictionary), "squares_x": int(cfg.squares_x),
+        "squares_y": int(cfg.squares_y), "square_length_m": square,
+        "marker_length_m": marker, "board_width_m": width, "board_height_m": height,
+        "legacy_pattern": bool(cfg.get("legacy_pattern", False)),
+        "reference_match": {
+            "board_width": bool(np.isclose(width, reference_width, atol=5e-4, rtol=0)),
+            "board_height": bool(np.isclose(height, reference_height, atol=5e-4, rtol=0)),
+            "square_length": bool(np.isclose(square, reference_square, atol=5e-5, rtol=0)),
+            "marker_length": bool(np.isclose(marker, reference_marker, atol=5e-5, rtol=0)),
+        },
+    }
+
+
+def validate_factory_intrinsics(objs, imgs, intr: Intrinsics) -> dict:
+    """Measure corner reprojection errors after fitting one board pose per view."""
+    per_view, corner_errors = [], []
+    for obj, imgp in zip(objs, imgs):
+        obj = np.asarray(obj, np.float64)
+        imgp = np.asarray(imgp, np.float64)
+        n, rvecs, tvecs, pose_errors = cv2.solvePnPGeneric(
+            obj, imgp, intr.K, intr.dist, flags=cv2.SOLVEPNP_IPPE)
+        if n == 0:
+            continue
+        best = int(np.argmin(np.asarray(pose_errors).reshape(-1)))
+        rvec, tvec = cv2.solvePnPRefineLM(
+            obj, imgp, intr.K, intr.dist, rvecs[best].copy(), tvecs[best].copy())
+        proj, _ = cv2.projectPoints(obj, rvec, tvec, intr.K, intr.dist)
+        errors = np.linalg.norm(proj.reshape(-1, 2) - imgp.reshape(-1, 2), axis=1)
+        corner_errors.extend(errors.tolist())
+        per_view.append({"n_corners": int(len(errors)),
+                         "median_px": float(np.median(errors)),
+                         "p95_px": float(np.percentile(errors, 95))})
+    if not corner_errors:
+        raise ValueError("no board poses could be solved")
+    return {"n_views": len(per_view), "n_corners": len(corner_errors),
+            "corner_median_px": float(np.median(corner_errors)),
+            "corner_p95_px": float(np.percentile(corner_errors, 95)),
+            "per_view": per_view}
 
 
 def calibrate(objs, imgs, size, flags=0):
@@ -38,9 +116,16 @@ def main():
     p.add_argument("--max-views", type=int, default=60)
     p.add_argument("--fix-k3", action="store_true", help="k3=0 고정 (왜곡 작은 렌즈에서 과적합 방지)")
     p.add_argument("--out", default=None)
+    p.add_argument("--validate-factory", help="factory RGB Intrinsics JSON to validate")
+    p.add_argument("--report", help="validation report JSON path")
+    p.add_argument("--save-refit", help="optional independent refit Intrinsics JSON")
     a = p.parse_args()
 
     cfg = load_config(a.config, a.set)
+    try:
+        board_spec = require_verified_board(cfg.board) if a.validate_factory else None
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
     board = CharucoTarget(cfg.board)
     objs, imgs, size = [], [], None
     with open_source(a) as src:
@@ -56,6 +141,25 @@ def main():
         sel = np.linspace(0, len(objs) - 1, a.max_views).astype(int)
         objs, imgs = [objs[i] for i in sel], [imgs[i] for i in sel]
 
+    if a.validate_factory:
+        factory = Intrinsics.load(cfg.resolve(a.validate_factory))
+        if factory.meta.get("source") != "realsense_factory_color":
+            raise SystemExit("--validate-factory requires a RealSense factory color intrinsic file")
+        if factory.meta.get("opencv_distortion_model") not in {"none", "brown conrady"}:
+            raise SystemExit("factory distortion model is not supported by OpenCV projection")
+        if size != (factory.width, factory.height):
+            raise SystemExit(f"capture size {size} != factory profile {(factory.width, factory.height)}")
+        report = validate_factory_intrinsics(objs, imgs, factory)
+        report.update({"intrinsics": str(a.validate_factory), "board": board_spec})
+        report_path = cfg.resolve(a.report or "calib/factory_validation.json")
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
+        print(f"factory validation: {report['n_views']} views, {report['n_corners']} corners, "
+              f"median={report['corner_median_px']:.3f}px, p95={report['corner_p95_px']:.3f}px")
+        print(f"report: {report_path}")
+        if not a.save_refit:
+            return
+
     flags = cv2.CALIB_FIX_K3 if a.fix_k3 else 0
     rms, K, dist, per_view = calibrate(objs, imgs, size, flags)
     bad = per_view > 3 * np.median(per_view)
@@ -68,7 +172,7 @@ def main():
     intr = Intrinsics(K, dist, size[0], size[1], float(rms),
                       {"n_views": len(objs), "per_view_median_px": float(np.median(per_view)),
                        "source": a.video or a.images or a.camera, "fix_k3": a.fix_k3})
-    out = cfg.resolve(a.out or cfg.paths.intrinsics)
+    out = cfg.resolve(a.save_refit or a.out or cfg.paths.intrinsics)
     intr.save(out)
     np.set_printoptions(precision=3, suppress=True)
     print(f"RMS {rms:.3f}px (view별 median {np.median(per_view):.3f}px), {size[0]}x{size[1]}")
